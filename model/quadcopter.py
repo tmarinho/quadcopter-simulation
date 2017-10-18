@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.integrate as integrate
-from utils.quaternion import Quaternion 
+from utils.quaternion import Quaternion
 from utils.utils import RPYToRot, RotToQuat, RotToRPY
 import model.params as params
 
@@ -17,20 +17,21 @@ class Quadcopter:
     def __init__(self, pos, attitude):
         """ pos = [x,y,z] attitude = [rool,pitch,yaw]
             """
-        self.state = np.zeros(13) 
+        self.state = np.zeros(13)
         roll, pitch, yaw = attitude
         rot    = RPYToRot(roll, pitch, yaw)
         quat   = RotToQuat(rot)
-        self.state[0] = pos[0] 
+        self.state[0] = pos[0]
         self.state[1] = pos[1]
         self.state[2] = pos[2]
         self.state[6] = quat[0]
         self.state[7] = quat[1]
         self.state[8] = quat[2]
         self.state[9] = quat[3]
+        self.hist = []
 
     def world_frame(self):
-        """ position returns a 3x6 matrix 
+        """ position returns a 3x6 matrix
             where row is [x, y, z] column is m1 m2 m3 m4 origin h
             """
         origin = self.state[0:3]
@@ -51,12 +52,13 @@ class Quadcopter:
     def attitude(self):
         rot = Quaternion(self.state[6:10]).as_rotation_matrix()
         return RotToRPY(rot)
-    
+
     def omega(self):
         return self.state[10:13]
 
     def state_dot(self, state, t, F, M):
         x, y, z, xdot, ydot, zdot, qw, qx, qy, qz, p, q, r = state
+        self.hist.append(np.array([x,y,z]))
         quat = np.array([qw,qx,qy,qz])
 
         bRw = Quaternion(quat).as_rotation_matrix() # world to body rotation matrix
@@ -66,13 +68,13 @@ class Quadcopter:
                     - np.array([[0, 0, params.mass * params.g]]).T)
         # angular velocity - using quternion
         # http://www.euclideanspace.com/physics/kinematics/angularvelocity/
-        K_quat = 2.0; # this enforces the magnitude 1 constraint for the quaternion 
+        K_quat = 2.0; # this enforces the magnitude 1 constraint for the quaternion
         quaterror = 1.0 - (qw**2 + qx**2 + qy**2 + qz**2)
         qdot = (-1.0/2) * np.array([[0, -p, -q, -r],
-                                    [p,  0, -r,  q], 
+                                    [p,  0, -r,  q],
                                     [q,  r,  0, -p],
                                     [r, -q,  p,  0]]).dot(quat) + K_quat * quaterror * quat;
-        
+
         # angular acceleration - Euler's equation of motion
         # https://en.wikipedia.org/wiki/Euler%27s_equations_(rigid_body_dynamics)
         omega = np.array([p,q,r])
@@ -91,8 +93,8 @@ class Quadcopter:
         state_dot[10] = pqrdot[0]
         state_dot[11] = pqrdot[1]
         state_dot[12] = pqrdot[2]
-        
-        return state_dot    
+
+        return state_dot
 
     def update(self, dt, F, M):
         # limit thrust and Moment
@@ -103,4 +105,4 @@ class Quadcopter:
         F = np.sum(prop_thrusts_clamped)
         M = params.A[1:].dot(prop_thrusts_clamped)
         self.state = integrate.odeint(self.state_dot, self.state, [0,dt], args = (F, M))[1]
-        
+        #self.state = integrate.ode(self.state_dot, self.state,)

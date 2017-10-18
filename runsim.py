@@ -2,16 +2,18 @@
 author: Peter Huang
 email: hbd730@gmail.com
 license: BSD
+
+Modified by Thiago Marinho
+email: marinho@illinois.edu
 Please feel free to use and modify this, but keep the above information. Thanks!
 """
 
-import quadPlot as plt
+import pdb
+import matplotlib.pyplot as plt
 import controller
 import trajGen
-import scheduler
 from model.quadcopter import Quadcopter
 import numpy as np
-import time as thread_time
 
 control_frequency = 200 # Hz for attitude control loop
 dt = 1.0 / control_frequency
@@ -26,23 +28,22 @@ def attitudeControl(quad, time):
     F, M = controller.run(quad, desired_state)
     quad.update(dt, F, M)
     time[0] += dt
+    #print quad.state[0], quad.state[1], quad.state[2]
 
 def main():
+    #pdb.set_trace()
     pos = (0,0,0)
     attitude = (0,0,np.pi/2)
     quadcopter = Quadcopter(pos, attitude)
-    sched = scheduler.Scheduler()
-    sched.add_task(attitudeControl, dt, (quadcopter,time))
-    kEvent_Render = sched.add_event(render, (quadcopter,))
-    plt.plot_quad_3d((sched, kEvent_Render))
-    try:
-        while True:
-            thread_time.sleep(5)
-    except KeyboardInterrupt:
-        print ("attempting to close threads.")
-        sched.stop()
-        print ("terminated.")
+    while time[0] < 1.0:
+        attitudeControl(quadcopter,time)
+        #print time[0]
+    t = np.arange(0.,1.,dt)
+    print t.shape
+    print len(quadcopter.hist)
+    plt.plot(quadcopter.hist)
+    plt.show()
+
 
 if __name__ == "__main__":
     main()
-
