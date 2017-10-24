@@ -29,6 +29,8 @@ class Quadcopter:
         self.state[8] = quat[2]
         self.state[9] = quat[3]
         self.hist = []
+        self.R = rot
+
 
     def world_frame(self):
         """ position returns a 3x6 matrix
@@ -58,10 +60,10 @@ class Quadcopter:
 
     def state_dot(self, state, t, F, M):
         x, y, z, xdot, ydot, zdot, qw, qx, qy, qz, p, q, r = state
-        self.hist.append(np.array([x,y,z]))
         quat = np.array([qw,qx,qy,qz])
 
         bRw = Quaternion(quat).as_rotation_matrix() # world to body rotation matrix
+        self.R = bRw
         wRb = bRw.T # orthogonal matrix inverse = transpose
         # acceleration - Newton's second law of motion
         accel = 1.0 / params.mass * (wRb.dot(np.array([[0, 0, F]]).T)
@@ -105,4 +107,4 @@ class Quadcopter:
         F = np.sum(prop_thrusts_clamped)
         M = params.A[1:].dot(prop_thrusts_clamped)
         self.state = integrate.odeint(self.state_dot, self.state, [0,dt], args = (F, M))[1]
-        #self.state = integrate.ode(self.state_dot, self.state,)
+        self.hist.append(np.array([self.state[0],self.state[1],self.state[2]]))

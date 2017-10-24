@@ -18,30 +18,34 @@ import numpy as np
 control_frequency = 200 # Hz for attitude control loop
 dt = 1.0 / control_frequency
 time = [0.0]
+SIMTIME = 5.0
+t = np.arange(0.,SIMTIME+dt,dt)
+reward = -9999
 
-def render(quad):
-    frame = quad.world_frame()
-    plt.set_frame(frame)
+def reward_fcn(states, des_states, F, M):
+    x = states - des_states
+    reward = - np.dot(x,x)
+    #r = np.dot(M.T,M)[0,0]
+
 
 def attitudeControl(quad, time):
     desired_state = trajGen.genLine(time[0])
     F, M = controller.run(quad, desired_state)
+    reward_fcn(np.concatenate((quad.position(), quad.velocity()),axis=0),np.concatenate((desired_state.pos, desired_state.vel),axis=0),F,M)
     quad.update(dt, F, M)
     time[0] += dt
-    #print quad.state[0], quad.state[1], quad.state[2]
 
 def main():
     #pdb.set_trace()
     pos = (0,0,0)
     attitude = (0,0,np.pi/2)
     quadcopter = Quadcopter(pos, attitude)
-    while time[0] < 1.0:
+
+    # Simulation Loop
+    while time[0] <= SIMTIME:
         attitudeControl(quadcopter,time)
-        #print time[0]
-    t = np.arange(0.,1.,dt)
-    print t.shape
-    print len(quadcopter.hist)
-    plt.plot(quadcopter.hist)
+
+    plt.plot(t,quadcopter.hist)
     plt.show()
 
 
